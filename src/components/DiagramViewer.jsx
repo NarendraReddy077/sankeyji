@@ -13,6 +13,7 @@ export default function DiagramViewer({
   unitPrefix,
   unitSuffix,
   showPercentages,
+  percentageBasis = 'branch',
   palette,
   insights,
   showInsights,
@@ -149,6 +150,7 @@ export default function DiagramViewer({
               unitPrefix={unitPrefix}
               unitSuffix={unitSuffix}
               showPercentages={showPercentages}
+              percentageBasis={percentageBasis}
               palette={palette}
               insights={insights}
               showInsights={showInsights}
@@ -165,6 +167,7 @@ export default function DiagramViewer({
               unitPrefix={unitPrefix}
               unitSuffix={unitSuffix}
               showPercentages={showPercentages}
+              percentageBasis={percentageBasis}
               palette={palette}
               nodeWidth={nodeWidth}
               nodePadding={nodePadding}

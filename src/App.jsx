@@ -27,6 +27,7 @@ export default function App() {
   const [renderMode, setRenderMode] = useState('infographic'); // 'infographic' | 'classic'
   const [paletteId, setPaletteId] = useState(defaultPreset.paletteId || 'executive_vibrant');
   const [showPercentages, setShowPercentages] = useState(true);
+  const [percentageBasis, setPercentageBasis] = useState('branch'); // 'branch' (100% equivalent per section) | 'total'
   const [showInsights, setShowInsights] = useState(true);
   const [customInsights, setCustomInsights] = useState(null);
   const [compactNumbers, setCompactNumbers] = useState(false);
@@ -260,6 +261,7 @@ export default function App() {
             unitPrefix={unitPrefix}
             unitSuffix={unitSuffix}
             showPercentages={showPercentages}
+            percentageBasis={percentageBasis}
             palette={currentPalette}
             insights={parsedData.insights}
             showInsights={showInsights}
@@ -302,6 +304,8 @@ export default function App() {
               setUnitSuffix={setUnitSuffix}
               showPercentages={showPercentages}
               setShowPercentages={setShowPercentages}
+              percentageBasis={percentageBasis}
+              setPercentageBasis={setPercentageBasis}
               paletteId={paletteId}
               setPaletteId={setPaletteId}
               showInsights={showInsights}

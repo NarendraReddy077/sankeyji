@@ -37,6 +37,8 @@ export default function SidebarControls({
   setUnitSuffix,
   showPercentages,
   setShowPercentages,
+  percentageBasis,
+  setPercentageBasis,
   paletteId,
   setPaletteId,
   showInsights,
@@ -383,6 +385,22 @@ export default function SidebarControls({
                 />
               </div>
             </div>
+
+            {showPercentages && (
+              <div className="control-group">
+                <label className="control-label">Percentage Calculation Basis</label>
+                <div className="control-hint mb-2">How percentages are computed across sections</div>
+                <select
+                  value={percentageBasis || 'branch'}
+                  onChange={e => setPercentageBasis(e.target.value)}
+                  className="control-input"
+                  style={{ background: 'var(--bg-surface-elevated, #FFFFFF)', cursor: 'pointer' }}
+                >
+                  <option value="branch">Branch Breakdown (100% per section)</option>
+                  <option value="total">Overall Total (Share of root inflow)</option>
+                </select>
+              </div>
+            )}
 
             <div className="control-group">
               <div className="toggle-switch-row">

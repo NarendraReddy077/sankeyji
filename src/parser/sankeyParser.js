@@ -116,6 +116,7 @@ export function parseSankeyText(rawText, userPalette, customOverrides = {}) {
 
   // Build Graph Nodes
   const nodeMap = new Map();
+  let nodeOrderCounter = 0;
   function getOrCreateNode(name) {
     if (!nodeMap.has(name)) {
       nodeMap.set(name, {
@@ -127,6 +128,7 @@ export function parseSankeyText(rawText, userPalette, customOverrides = {}) {
         outValue: 0,
         value: 0,
         depth: 0,
+        order: nodeOrderCounter++,
         color: null,
         icon: null
       });
@@ -186,9 +188,9 @@ export function parseSankeyText(rawText, userPalette, customOverrides = {}) {
     stages.push(nodes.filter(n => n.depth === d));
   }
 
-  // Sort nodes within each stage by value descending to make layout tidy
+  // Preserve input data order for each stage
   stages.forEach(stage => {
-    stage.sort((a, b) => b.value - a.value);
+    stage.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   });
 
   // Assign Colors & Icons

@@ -8,6 +8,18 @@ function DynamicIcon({ name, size = 24, color = 'currentColor', className = '' }
   return <IconComponent size={size} color={color} className={className} />;
 }
 
+// Format percentage nicely with clean integers and decimal precision
+function formatPercentage(val, baseVal) {
+  if (!baseVal || baseVal <= 0 || isNaN(val)) return '0%';
+  const rawPct = (val / baseVal) * 100;
+  if (rawPct >= 99.95) return '100%';
+  if (rawPct <= 0.05 && rawPct > 0) return '0.1%';
+  if (Math.abs(rawPct - Math.round(rawPct)) < 0.05) {
+    return `${Math.round(rawPct)}%`;
+  }
+  return `${rawPct.toFixed(1)}%`;
+}
+
 export default function InfographicRenderer({
   parsedData,
   title,
@@ -16,6 +28,7 @@ export default function InfographicRenderer({
   unitPrefix = '',
   unitSuffix = '',
   showPercentages = true,
+  percentageBasis = 'branch', // 'branch' (100% equivalent per section) | 'total'
   palette,
   insights = [],
   showInsights = true,
@@ -24,7 +37,7 @@ export default function InfographicRenderer({
   compactNumbers = false,
   customInsights = null
 }) {
-  const { stages, rootNodes, totalRootValue, links, maxDepth } = parsedData;
+  const { stages, rootNodes, totalRootValue, links, maxDepth, nodes: allNodes = [] } = parsedData;
 
   // ViewBox & Layout Dimensions
   const SVG_WIDTH = 1350;
@@ -113,8 +126,15 @@ export default function InfographicRenderer({
         const itemW = 340;
         const itemH = 26;
 
-        // Group leaf nodes by their incoming parent to align visually next to parent
+        // Group leaf nodes by their incoming parent in order of previous stage
+        const prevStage = stages[sIdx - 1] || [];
         const parentGroups = new Map();
+
+        // Initialize parent groups in the order of the previous stage
+        prevStage.forEach(pNode => {
+          parentGroups.set(pNode.id, []);
+        });
+
         stage.forEach(node => {
           const parentId = node.inLinks[0]?.source || 'root';
           if (!parentGroups.has(parentId)) parentGroups.set(parentId, []);
@@ -126,6 +146,11 @@ export default function InfographicRenderer({
         const parentPosMap = nodePositions;
 
         parentGroups.forEach((groupNodes, parentId) => {
+          if (!groupNodes || groupNodes.length === 0) return;
+
+          // Preserve input order within this parent's group
+          groupNodes.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
           const parentPos = parentPosMap.get(parentId);
           let groupStartY = globalYOffset;
 
@@ -335,7 +360,27 @@ export default function InfographicRenderer({
           <g id="sankey-nodes">
             {Array.from(layout.nodePositions.values()).map(pos => {
               const { node, x, y, width, height, isRoot, isMiddle, isLeaf } = pos;
-              const pct = ((node.value / totalRootValue) * 100).toFixed(node.value / totalRootValue < 0.1 ? 1 : 0);
+
+              // Find direct parent node if available
+              let parentNode = null;
+              if (node.inLinks && node.inLinks.length > 0) {
+                const parentId = node.inLinks[0].source;
+                const parentPos = layout.nodePositions.get(parentId);
+                parentNode = parentPos ? parentPos.node : (allNodes.find(n => n.id === parentId) || null);
+              }
+
+              // Compute percentage
+              let pctDisplay = '';
+              if (isRoot) {
+                pctDisplay = '100%';
+              } else if (percentageBasis === 'branch' && parentNode) {
+                const branchBaseVal = parentNode.outValue || parentNode.value || totalRootValue;
+                pctDisplay = formatPercentage(node.value, branchBaseVal);
+              } else {
+                pctDisplay = formatPercentage(node.value, totalRootValue);
+              }
+
+              const totalPctDisplay = formatPercentage(node.value, totalRootValue);
               const formattedVal = formatValue(node.value, {
                 prefix: unitPrefix,
                 suffix: unitSuffix,
@@ -345,7 +390,8 @@ export default function InfographicRenderer({
               // 1. ROOT NODE (Left Dark Card matching screenshot)
               if (isRoot) {
                 return (
-                  <g key={node.id} transform={`translate(${x}, ${y})`} filter="url(#root-shadow)">
+                  <g key={node.id} transform={`translate(${x}, ${y})`} filter="url(#root-shadow)" style={{ cursor: 'pointer' }}>
+                    <title>{`${node.name}: ${formattedVal} (100% Total Input)`}</title>
                     {/* Dark Card Background */}
                     <rect
                       width={width}
@@ -416,7 +462,8 @@ export default function InfographicRenderer({
               if (isMiddle) {
                 const nodeColor = node.color || '#3B82F6';
                 return (
-                  <g key={node.id} transform={`translate(${x}, ${y})`} filter="url(#card-shadow)">
+                  <g key={node.id} transform={`translate(${x}, ${y})`} filter="url(#card-shadow)" style={{ cursor: 'pointer' }}>
+                    <title>{`${node.name}: ${formattedVal} (${pctDisplay}${parentNode ? ` of ${parentNode.name}` : ''}, ${totalPctDisplay} of total)`}</title>
                     {/* Card Background */}
                     <rect
                       width={width}
@@ -470,7 +517,7 @@ export default function InfographicRenderer({
                       fontSize="13"
                       fontWeight="600"
                     >
-                      {formattedVal} {showPercentages ? `(${pct}%)` : ''}
+                      {formattedVal} {showPercentages ? `(${pctDisplay})` : ''}
                     </text>
                   </g>
                 );
@@ -480,7 +527,8 @@ export default function InfographicRenderer({
               if (isLeaf) {
                 const leafColor = node.color || '#3B82F6';
                 return (
-                  <g key={node.id} transform={`translate(${x}, ${y})`}>
+                  <g key={node.id} transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }}>
+                    <title>{`${node.name}: ${formattedVal} (${pctDisplay}${parentNode ? ` of ${parentNode.name}` : ''}, ${totalPctDisplay} of total)`}</title>
                     {/* Small Colored Marker */}
                     <rect
                       x="0"
@@ -511,7 +559,7 @@ export default function InfographicRenderer({
                       fontSize="13"
                       fontWeight="600"
                     >
-                      {formattedVal} {showPercentages ? `(${pct}%)` : ''}
+                      {formattedVal} {showPercentages ? `(${pctDisplay})` : ''}
                     </text>
                   </g>
                 );

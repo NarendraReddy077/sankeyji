@@ -2,6 +2,18 @@ import React, { useMemo, useState } from 'react';
 import { sankey, sankeyLinkHorizontal, sankeyJustify, sankeyLeft, sankeyRight, sankeyCenter } from 'd3-sankey';
 import { formatValue } from '../parser/sankeyParser';
 
+// Format percentage helper
+function formatPercentage(val, baseVal) {
+  if (!baseVal || baseVal <= 0 || isNaN(val)) return '0%';
+  const rawPct = (val / baseVal) * 100;
+  if (rawPct >= 99.95) return '100%';
+  if (rawPct <= 0.05 && rawPct > 0) return '0.1%';
+  if (Math.abs(rawPct - Math.round(rawPct)) < 0.05) {
+    return `${Math.round(rawPct)}%`;
+  }
+  return `${rawPct.toFixed(1)}%`;
+}
+
 export default function ClassicSankeyRenderer({
   parsedData,
   title,
@@ -10,6 +22,7 @@ export default function ClassicSankeyRenderer({
   unitPrefix = '',
   unitSuffix = '',
   showPercentages = true,
+  percentageBasis = 'branch',
   palette,
   nodeWidth = 24,
   nodePadding = 18,
@@ -49,6 +62,8 @@ export default function ClassicSankeyRenderer({
       const sankeyGenerator = sankey()
         .nodeId(d => d.id)
         .nodeAlign(alignFn)
+        .nodeSort(null)
+        .linkSort(null)
         .nodeWidth(nodeWidth)
         .nodePadding(nodePadding)
         .extent([
@@ -157,7 +172,23 @@ export default function ClassicSankeyRenderer({
           {sankeyData.nodes.map((node) => {
             const nodeH = Math.max(2, node.y1 - node.y0);
             const isRightSide = node.x0 > SVG_WIDTH / 2;
-            const pct = ((node.value / totalRootValue) * 100).toFixed(node.value / totalRootValue < 0.1 ? 1 : 0);
+
+            // Find parent node
+            let parentNode = null;
+            if (node.targetLinks && node.targetLinks.length > 0) {
+              parentNode = node.targetLinks[0].source;
+            }
+
+            let pctDisplay = '';
+            if (node.sourceLinks && node.sourceLinks.length > 0 && (!node.targetLinks || node.targetLinks.length === 0)) {
+              pctDisplay = '100%';
+            } else if (percentageBasis === 'branch' && parentNode) {
+              pctDisplay = formatPercentage(node.value, parentNode.value);
+            } else {
+              pctDisplay = formatPercentage(node.value, totalRootValue);
+            }
+
+            const totalPctDisplay = formatPercentage(node.value, totalRootValue);
             const formattedVal = formatValue(node.value, { prefix: unitPrefix, suffix: unitSuffix, compact: compactNumbers });
 
             return (
@@ -170,7 +201,7 @@ export default function ClassicSankeyRenderer({
                   stroke="rgba(0,0,0,0.15)"
                   strokeWidth="1"
                   style={{ cursor: 'grab' }}
-                  onMouseEnter={() => setHoveredItem({ type: 'node', data: node })}
+                  onMouseEnter={() => setHoveredItem({ type: 'node', data: node, parentNode, pctDisplay, totalPctDisplay })}
                   onMouseLeave={() => setHoveredItem(null)}
                 />
 
@@ -197,7 +228,7 @@ export default function ClassicSankeyRenderer({
                   fontSize="11"
                   fontWeight="600"
                 >
-                  {formattedVal} {showPercentages ? `(${pct}%)` : ''}
+                  {formattedVal} {showPercentages ? `(${pctDisplay})` : ''}
                 </text>
               </g>
             );
@@ -253,7 +284,7 @@ export default function ClassicSankeyRenderer({
               <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '2px' }}>
                 {formatValue(hoveredItem.data.value, { prefix: unitPrefix, suffix: unitSuffix, compact: compactNumbers })}
                 <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '6px' }}>
-                  ({((hoveredItem.data.value / totalRootValue) * 100).toFixed(1)}% of total)
+                  ({hoveredItem.pctDisplay}{hoveredItem.parentNode ? ` of ${hoveredItem.parentNode.name}` : ''}, {hoveredItem.totalPctDisplay} of total)
                 </span>
               </div>
             </div>
