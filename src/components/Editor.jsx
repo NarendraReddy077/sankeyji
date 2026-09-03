@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Code, Copy, Check, Sparkles, AlertCircle, FileText, Plus, HelpCircle } from 'lucide-react';
+import { Code, Copy, Check, Sparkles, AlertCircle, FileText, Plus, HelpCircle, Maximize2, Minimize2, PanelLeftClose } from 'lucide-react';
 
 export default function Editor({
   code,
@@ -7,7 +7,10 @@ export default function Editor({
   errors = [],
   onInsertSnippet,
   totalFlows = 0,
-  onOpenSyntaxHelp
+  onOpenSyntaxHelp,
+  isMaximized = false,
+  onToggleMaximize,
+  onMinimize
 }) {
   const [copied, setCopied] = React.useState(false);
   const textareaRef = useRef(null);
@@ -61,6 +64,27 @@ export default function Editor({
             {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
           </button>
+
+          {onToggleMaximize && (
+            <button
+              className={`editor-btn-secondary ${isMaximized ? 'active-toggle' : ''}`}
+              onClick={onToggleMaximize}
+              title={isMaximized ? "Restore Editor (Default Width)" : "Maximize Editor (Expand Full)"}
+            >
+              {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              <span>{isMaximized ? 'Restore' : 'Expand'}</span>
+            </button>
+          )}
+
+          {onMinimize && (
+            <button
+              className="editor-btn-icon"
+              onClick={onMinimize}
+              title="Minimize Editor"
+            >
+              <PanelLeftClose size={15} />
+            </button>
+          )}
         </div>
       </div>
 

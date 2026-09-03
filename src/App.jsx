@@ -41,9 +41,15 @@ export default function App() {
   // Custom Per-Node Overrides
   const [customOverrides, setCustomOverrides] = useState({});
 
-  // UI Panels
+  // UI Panels State
+  const [editorWidth, setEditorWidth] = useState(380);
+  const [sidebarWidth, setSidebarWidth] = useState(350);
   const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isEditorMaximized, setIsEditorMaximized] = useState(false);
+  const [isSidebarMaximized, setIsSidebarMaximized] = useState(false);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSyntaxModalOpen, setIsSyntaxModalOpen] = useState(false);
 
@@ -56,6 +62,102 @@ export default function App() {
   const parsedData = useMemo(() => {
     return parseSankeyText(code, currentPalette, customOverrides);
   }, [code, currentPalette, customOverrides]);
+
+  // Zen Mode (Both Sidebars Collapsed)
+  const isZenMode = isEditorCollapsed && isSidebarCollapsed;
+  const handleToggleZenMode = () => {
+    if (isZenMode) {
+      setIsEditorCollapsed(false);
+      setIsSidebarCollapsed(false);
+    } else {
+      setIsEditorCollapsed(true);
+      setIsSidebarCollapsed(true);
+      setIsEditorMaximized(false);
+      setIsSidebarMaximized(false);
+    }
+  };
+
+  // Maximize / Expand Left (Editor)
+  const handleToggleEditorMaximize = () => {
+    if (isEditorMaximized) {
+      setIsEditorMaximized(false);
+    } else {
+      setIsEditorMaximized(true);
+      setIsEditorCollapsed(false);
+    }
+  };
+
+  // Maximize / Expand Right (Inspector)
+  const handleToggleSidebarMaximize = () => {
+    if (isSidebarMaximized) {
+      setIsSidebarMaximized(false);
+    } else {
+      setIsSidebarMaximized(true);
+      setIsSidebarCollapsed(false);
+    }
+  };
+
+  // Resize Left Pane (Editor) Drag Handler
+  const handleLeftResizeStart = (e) => {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+    const startX = e.clientX;
+    const startWidth = isEditorCollapsed ? 38 : editorWidth;
+
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const targetWidth = startWidth + delta;
+      if (targetWidth < 120) {
+        setIsEditorCollapsed(true);
+        return;
+      }
+      setIsEditorCollapsed(false);
+      setIsEditorMaximized(false);
+      const maxWidth = Math.max(400, Math.floor(window.innerWidth * 0.65));
+      const clampedWidth = Math.min(maxWidth, Math.max(220, targetWidth));
+      setEditorWidth(clampedWidth);
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingLeft(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Resize Right Pane (Customizer) Drag Handler
+  const handleRightResizeStart = (e) => {
+    e.preventDefault();
+    setIsDraggingRight(true);
+    const startX = e.clientX;
+    const startWidth = isSidebarCollapsed ? 38 : sidebarWidth;
+
+    const onMouseMove = (moveEvent) => {
+      const delta = startX - moveEvent.clientX;
+      const targetWidth = startWidth + delta;
+      if (targetWidth < 120) {
+        setIsSidebarCollapsed(true);
+        return;
+      }
+      setIsSidebarCollapsed(false);
+      setIsSidebarMaximized(false);
+      const maxWidth = Math.max(400, Math.floor(window.innerWidth * 0.65));
+      const clampedWidth = Math.min(maxWidth, Math.max(260, targetWidth));
+      setSidebarWidth(clampedWidth);
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingRight(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Handle Preset Switching
   const handleSelectPreset = (presetId) => {
@@ -73,8 +175,21 @@ export default function App() {
     setCustomOverrides({});
   };
 
+  // Computed width styles for CSS
+  const getEditorStyle = () => {
+    if (isEditorCollapsed) return { width: '40px', minWidth: '40px', maxWidth: '40px' };
+    if (isEditorMaximized) return { width: 'min(62vw, 840px)', minWidth: '380px' };
+    return { width: `${editorWidth}px` };
+  };
+
+  const getSidebarStyle = () => {
+    if (isSidebarCollapsed) return { width: '40px', minWidth: '40px', maxWidth: '40px' };
+    if (isSidebarMaximized) return { width: 'min(58vw, 760px)', minWidth: '340px' };
+    return { width: `${sidebarWidth}px` };
+  };
+
   return (
-    <div className="app-root">
+    <div className={`app-root ${isDraggingLeft || isDraggingRight ? 'is-dragging-resizer' : ''}`}>
       {/* Top Main Navigation */}
       <Navbar
         activePresetId={activePresetId}
@@ -83,12 +198,21 @@ export default function App() {
         setRenderMode={setRenderMode}
         onOpenExport={() => setIsExportModalOpen(true)}
         onOpenSyntaxHelp={() => setIsSyntaxModalOpen(true)}
+        isEditorCollapsed={isEditorCollapsed}
+        setIsEditorCollapsed={setIsEditorCollapsed}
+        isSidebarCollapsed={isSidebarCollapsed}
+        setIsSidebarCollapsed={setIsSidebarCollapsed}
+        isZenMode={isZenMode}
+        onToggleZenMode={handleToggleZenMode}
       />
 
       {/* Main Studio Body Workspace */}
       <div className="studio-workspace">
         {/* Left Side: Code / Text Data Editor */}
-        <div className={`editor-pane-container ${isEditorCollapsed ? 'collapsed' : ''}`}>
+        <div
+          className={`editor-pane-container ${isEditorCollapsed ? 'collapsed' : ''} ${isEditorMaximized ? 'maximized' : ''} ${isDraggingLeft ? 'resizing' : ''}`}
+          style={getEditorStyle()}
+        >
           {!isEditorCollapsed ? (
             <Editor
               code={code}
@@ -96,28 +220,32 @@ export default function App() {
               errors={parsedData.errors}
               totalFlows={parsedData.links.length}
               onOpenSyntaxHelp={() => setIsSyntaxModalOpen(true)}
+              isMaximized={isEditorMaximized}
+              onToggleMaximize={handleToggleEditorMaximize}
+              onMinimize={() => { setIsEditorCollapsed(true); setIsEditorMaximized(false); }}
             />
           ) : (
-            <div className="collapsed-rail">
+            <div className="collapsed-rail" onClick={() => setIsEditorCollapsed(false)} title="Click to Expand Editor">
               <button
                 className="rail-expand-btn"
-                onClick={() => setIsEditorCollapsed(false)}
+                onClick={(e) => { e.stopPropagation(); setIsEditorCollapsed(false); }}
                 title="Expand Text Editor"
               >
                 <PanelLeftOpen size={16} />
               </button>
+              <div className="rail-vertical-label">Flow Editor</div>
             </div>
           )}
+        </div>
 
-          {!isEditorCollapsed && (
-            <button
-              className="collapse-toggle-tab left"
-              onClick={() => setIsEditorCollapsed(true)}
-              title="Collapse Editor"
-            >
-              <PanelLeftClose size={14} />
-            </button>
-          )}
+        {/* Left Resizer Drag Handle */}
+        <div
+          className={`pane-resizer-handle left ${isDraggingLeft ? 'dragging' : ''} ${isEditorCollapsed ? 'collapsed-handle' : ''}`}
+          onMouseDown={handleLeftResizeStart}
+          onDoubleClick={() => { setEditorWidth(380); setIsEditorMaximized(false); setIsEditorCollapsed(false); }}
+          title={isEditorCollapsed ? "Drag right to expand Editor" : "Drag to resize Editor | Double click to reset width"}
+        >
+          <div className="resizer-grip-line" />
         </div>
 
         {/* Center: Live Diagram Viewport */}
@@ -145,8 +273,21 @@ export default function App() {
           />
         </div>
 
+        {/* Right Resizer Drag Handle */}
+        <div
+          className={`pane-resizer-handle right ${isDraggingRight ? 'dragging' : ''} ${isSidebarCollapsed ? 'collapsed-handle' : ''}`}
+          onMouseDown={handleRightResizeStart}
+          onDoubleClick={() => { setSidebarWidth(350); setIsSidebarMaximized(false); setIsSidebarCollapsed(false); }}
+          title={isSidebarCollapsed ? "Drag left to expand Inspector" : "Drag to resize Inspector | Double click to reset width"}
+        >
+          <div className="resizer-grip-line" />
+        </div>
+
         {/* Right Side: Visual Inspector / Customization Sidebar */}
-        <div className={`sidebar-pane-container ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <div
+          className={`sidebar-pane-container ${isSidebarCollapsed ? 'collapsed' : ''} ${isSidebarMaximized ? 'maximized' : ''} ${isDraggingRight ? 'resizing' : ''}`}
+          style={getSidebarStyle()}
+        >
           {!isSidebarCollapsed ? (
             <SidebarControls
               title={title}
@@ -183,27 +324,21 @@ export default function App() {
               nodes={parsedData.nodes}
               customOverrides={customOverrides}
               setCustomOverrides={setCustomOverrides}
+              isMaximized={isSidebarMaximized}
+              onToggleMaximize={handleToggleSidebarMaximize}
+              onMinimize={() => { setIsSidebarCollapsed(true); setIsSidebarMaximized(false); }}
             />
           ) : (
-            <div className="collapsed-rail">
+            <div className="collapsed-rail" onClick={() => setIsSidebarCollapsed(false)} title="Click to Expand Inspector">
               <button
                 className="rail-expand-btn"
-                onClick={() => setIsSidebarCollapsed(false)}
+                onClick={(e) => { e.stopPropagation(); setIsSidebarCollapsed(false); }}
                 title="Expand Customizer"
               >
                 <SlidersHorizontal size={16} />
               </button>
+              <div className="rail-vertical-label">Inspector</div>
             </div>
-          )}
-
-          {!isSidebarCollapsed && (
-            <button
-              className="collapse-toggle-tab right"
-              onClick={() => setIsSidebarCollapsed(true)}
-              title="Collapse Customizer"
-            >
-              <PanelLeftClose size={14} className="rotate-180" />
-            </button>
           )}
         </div>
       </div>

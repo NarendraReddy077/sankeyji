@@ -10,7 +10,11 @@ import {
   ChevronUp,
   Tag,
   Plus,
-  Trash2
+  Trash2,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  SlidersHorizontal
 } from 'lucide-react';
 import { COLOR_PALETTES } from '../utils/themeAndIcons';
 
@@ -54,7 +58,10 @@ export default function SidebarControls({
   setNodeAlign,
   nodes = [],
   customOverrides,
-  setCustomOverrides
+  setCustomOverrides,
+  isMaximized = false,
+  onToggleMaximize,
+  onMinimize
 }) {
   const [activeTab, setActiveTab] = useState('style'); // 'style' | 'text' | 'units' | 'nodes'
 
@@ -97,6 +104,37 @@ export default function SidebarControls({
 
   return (
     <div className="sidebar-controls-root">
+      {/* Sidebar Header Bar */}
+      <div className="sidebar-header">
+        <div className="sidebar-title-group">
+          <SlidersHorizontal size={15} className="text-primary-400" />
+          <span className="sidebar-title">Inspector & Styles</span>
+        </div>
+
+        <div className="sidebar-actions">
+          {onToggleMaximize && (
+            <button
+              className={`sidebar-btn-action ${isMaximized ? 'active-toggle' : ''}`}
+              onClick={onToggleMaximize}
+              title={isMaximized ? "Restore Sidebar Width" : "Maximize Sidebar (Expand Full)"}
+            >
+              {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isMaximized ? 'Restore' : 'Expand'}</span>
+            </button>
+          )}
+
+          {onMinimize && (
+            <button
+              className="sidebar-btn-icon"
+              onClick={onMinimize}
+              title="Minimize Sidebar"
+            >
+              <PanelRightClose size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="sidebar-tabs">
         <button
